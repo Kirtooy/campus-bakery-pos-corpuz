@@ -10,7 +10,7 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-$products = loadProducts(__DIR__ . '/data/products.json');
+$products = loadProducts(appDataPath('products.json'));
 $csrfToken = $_SESSION['csrf_token'];
 $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('F j, Y');
 ?>
@@ -37,11 +37,23 @@ $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format
                 <small>Point of sale</small>
             </span>
         </a>
-        <div class="header-meta">
-            <span class="status-dot" aria-hidden="true"></span>
-            Counter open
-            <span class="header-divider" aria-hidden="true"></span>
-            <?= escape($today) ?>
+        <div class="header-tools">
+            <nav class="header-actions" aria-label="Point of sale tools">
+                <button id="view-transactions" class="header-button" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+                    Transactions
+                </button>
+                <button id="manage-products" class="header-button" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6m10-6v6M6 12h12v8H6z"/></svg>
+                    Manage products
+                </button>
+            </nav>
+            <div class="header-meta">
+                <span class="status-dot" aria-hidden="true"></span>
+                Counter open
+                <span class="header-divider" aria-hidden="true"></span>
+                <?= escape($today) ?>
+            </div>
         </div>
     </header>
 
@@ -52,10 +64,10 @@ $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format
                     <h1 id="products-heading">Fresh from the bakery</h1>
                     <p>Select an item to add it to the current order.</p>
                 </div>
-                <span class="product-count"><?= count($products) ?> products</span>
+                <span id="product-count" class="product-count"><?= count($products) ?> products</span>
             </div>
 
-            <div class="product-grid">
+            <div id="product-grid" class="product-grid">
                 <?php foreach ($products as $product): ?>
                     <article class="product-card">
                         <div class="product-visual" aria-hidden="true">
@@ -132,6 +144,66 @@ $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format
             </div>
         </aside>
     </main>
+
+    <dialog id="transactions-dialog" class="management-dialog history-dialog" aria-labelledby="transactions-title">
+        <div class="dialog-heading">
+            <div>
+                <p>Sales record</p>
+                <h2 id="transactions-title">Recent transactions</h2>
+            </div>
+            <button class="dialog-close" type="button" data-close-dialog="transactions-dialog" aria-label="Close recent transactions">×</button>
+        </div>
+        <p class="dialog-description">The 20 most recent completed sales, newest first.</p>
+        <div id="transactions-feedback" class="dialog-feedback" role="status" aria-live="polite"></div>
+        <div id="transactions-list" class="transactions-list"></div>
+    </dialog>
+
+    <dialog id="products-dialog" class="management-dialog products-dialog" aria-labelledby="products-dialog-title">
+        <div class="dialog-heading">
+            <div>
+                <p>Catalog tools</p>
+                <h2 id="products-dialog-title">Manage products</h2>
+            </div>
+            <button class="dialog-close" type="button" data-close-dialog="products-dialog" aria-label="Close product management">×</button>
+        </div>
+        <p class="dialog-description">Add bakery items or update the products shown at the counter.</p>
+        <div id="products-feedback" class="dialog-feedback" role="status" aria-live="polite"></div>
+
+        <div class="product-manager">
+            <section aria-labelledby="catalog-list-title">
+                <div class="manager-section-heading">
+                    <h3 id="catalog-list-title">Current catalog</h3>
+                    <span id="manager-product-count"><?= count($products) ?> items</span>
+                </div>
+                <div id="product-admin-list" class="product-admin-list"></div>
+            </section>
+
+            <section class="product-form-panel" aria-labelledby="product-form-title">
+                <h3 id="product-form-title">Add product</h3>
+                <form id="product-form" novalidate>
+                    <input id="product-id" name="id" type="hidden">
+
+                    <label for="product-name">Product name</label>
+                    <input id="product-name" name="name" type="text" maxlength="80" required>
+
+                    <label for="product-description">Short description</label>
+                    <textarea id="product-description" name="description" maxlength="140" rows="3" required></textarea>
+
+                    <label for="product-price">Price in pesos</label>
+                    <div class="manager-money-input">
+                        <span aria-hidden="true">₱</span>
+                        <input id="product-price" name="price" type="number" min="0.01" max="999999.99" step="0.01" placeholder="0.00" required>
+                    </div>
+
+                    <p id="product-form-error" class="field-error" role="alert"></p>
+                    <div class="product-form-actions">
+                        <button id="cancel-product-edit" class="secondary-button" type="button" hidden>Cancel edit</button>
+                        <button id="save-product" class="pay-button" type="submit">Add product</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </dialog>
 
     <dialog id="receipt-dialog" class="receipt-dialog" aria-labelledby="receipt-title">
         <div class="success-mark" aria-hidden="true">

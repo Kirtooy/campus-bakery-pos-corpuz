@@ -5,6 +5,7 @@ A desktop-friendly, browser-based point-of-sale system for a campus bakery. It u
 ## Features
 
 - Six bakery products loaded from `data/products.json`
+- Add, edit, and remove products without reloading the page
 - Add, increase, decrease, and remove cart items
 - Automatic subtotals and order total
 - Blank, non-numeric, negative, and insufficient-payment validation
@@ -12,6 +13,7 @@ A desktop-friendly, browser-based point-of-sale system for a campus bakery. It u
 - Payment confirmation and digital receipt modal
 - Unique transaction reference for every completed sale
 - Transactions saved to `data/transactions.json`
+- Newest-first recent transaction history with sale details
 - New Transaction action that clears the cart, payment, and receipt
 - CSRF protection for checkout requests
 
@@ -49,6 +51,7 @@ Get-ChildItem -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
 - `data/transactions.json` stores completed transactions.
 
 The server recalculates the order from the trusted product file instead of trusting totals sent by the browser.
+Product changes are also validated on the server and written while holding an exclusive file lock. The catalog cannot be reduced below the examination requirement of five products.
 
 ## Adding product images later
 

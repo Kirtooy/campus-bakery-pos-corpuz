@@ -31,6 +31,16 @@ check(validatePayment('100', 10500)['valid'] === false, 'Insufficient payment sh
 check(validatePayment('105', 10500)['valid'] === true, 'Exact payment should pass.');
 check(validatePayment('200.00', 10500)['cents'] === 20000, 'Payment should convert to cents.');
 
+$validProduct = validateProductInput('Cheese Roll', 'A soft cheese-filled roll.', '35.50');
+check($validProduct['valid'] === true, 'A complete product should pass validation.');
+check(validateProductInput('', 'Description', '20')['valid'] === false, 'Blank product name should fail.');
+check(validateProductInput('Product', 'Description', '-5')['valid'] === false, 'Negative product price should fail.');
+check(createProductId('Ensaymada', [['id' => 'ensaymada']]) === 'ensaymada-2', 'Duplicate product IDs should receive a suffix.');
+$temporaryTransactions = tempnam(sys_get_temp_dir(), 'campus-bakery-test-');
+file_put_contents($temporaryTransactions, '[]');
+check(loadRecentTransactions($temporaryTransactions) === [], 'An empty transaction database should load cleanly.');
+unlink($temporaryTransactions);
+
 if ($failures !== []) {
     fwrite(STDERR, implode(PHP_EOL, $failures) . PHP_EOL);
     exit(1);

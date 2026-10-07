@@ -14,5 +14,21 @@
         "total_cents": 5000,
         "paid_cents": 5100,
         "change_cents": 100
+    },
+    {
+        "reference": "CB-20261007-170108-9E97",
+        "created_at": "2026-10-07T17:01:08+08:00",
+        "items": [
+            {
+                "id": "coke",
+                "name": "Coke",
+                "quantity": 2,
+                "unit_price_cents": 1500,
+                "subtotal_cents": 3000
+            }
+        ],
+        "total_cents": 3000,
+        "paid_cents": 6000,
+        "change_cents": 3000
     }
 ]

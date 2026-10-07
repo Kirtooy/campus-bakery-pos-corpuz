@@ -39,7 +39,7 @@ if (!is_array($cart)) {
 }
 
 try {
-    $products = loadProducts(dirname(__DIR__) . '/data/products.json');
+    $products = loadProducts(appDataPath('products.json'));
     $order = calculateOrder($cart, $products);
 
     if ($order['items'] === []) {
@@ -62,7 +62,7 @@ try {
         'change_cents' => $paidCents - $order['total_cents'],
     ];
 
-    saveTransaction(dirname(__DIR__) . '/data/transactions.json', $transaction);
+    saveTransaction(appDataPath('transactions.json'), $transaction);
 
     respond(200, ['ok' => true, 'transaction' => $transaction]);
 } catch (Throwable $error) {

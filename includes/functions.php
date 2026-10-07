@@ -7,6 +7,16 @@ function escape(string $value): string
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function appDataPath(string $filename): string
+{
+    $customDirectory = getenv('CAMPUS_BAKERY_DATA_DIR');
+    $directory = is_string($customDirectory) && trim($customDirectory) !== ''
+        ? rtrim($customDirectory, '\\/')
+        : dirname(__DIR__) . '/data';
+
+    return $directory . DIRECTORY_SEPARATOR . $filename;
+}
+
 function formatPeso(int $cents): string
 {
     return '₱' . number_format($cents / 100, 2);
@@ -62,6 +72,121 @@ function loadProducts(string $path): array
     }
 
     return $products;
+}
+
+/**
+ * Replace the product database while holding an exclusive file lock.
+ *
+ * @param callable(array<int, array<string, mixed>>): array<int, array<string, mixed>> $mutator
+ * @return array<int, array{id: string, name: string, description: string, price_cents: int}>
+ */
+function mutateProducts(string $path, callable $mutator): array
+{
+    $handle = fopen($path, 'c+');
+    if ($handle === false) {
+        throw new RuntimeException('Unable to open the product database.');
+    }
+
+    try {
+        if (!flock($handle, LOCK_EX)) {
+            throw new RuntimeException('Unable to lock the product database.');
+        }
+
+        rewind($handle);
+        $contents = stream_get_contents($handle);
+        $products = $contents === false ? null : json_decode($contents, true);
+        if (!is_array($products)) {
+            throw new RuntimeException('The product database is not valid JSON.');
+        }
+
+        $updated = $mutator($products);
+        $json = json_encode(array_values($updated), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+        if ($json === false) {
+            throw new RuntimeException('Unable to encode the product database.');
+        }
+
+        rewind($handle);
+        if (!ftruncate($handle, 0) || fwrite($handle, $json . PHP_EOL) === false) {
+            throw new RuntimeException('Unable to save the product database.');
+        }
+        fflush($handle);
+        flock($handle, LOCK_UN);
+    } finally {
+        fclose($handle);
+    }
+
+    return loadProducts($path);
+}
+
+/** @return array{valid: bool, name?: string, description?: string, price?: float, message?: string} */
+function validateProductInput(mixed $name, mixed $description, mixed $price): array
+{
+    if (!is_string($name) || !is_string($description) || (!is_string($price) && !is_numeric($price))) {
+        return ['valid' => false, 'message' => 'Complete all product fields with valid values.'];
+    }
+
+    $name = trim($name);
+    $description = trim($description);
+    $priceText = trim((string) $price);
+
+    if ($name === '' || mb_strlen($name) > 80) {
+        return ['valid' => false, 'message' => 'Enter a product name with no more than 80 characters.'];
+    }
+    if ($description === '' || mb_strlen($description) > 140) {
+        return ['valid' => false, 'message' => 'Enter a description with no more than 140 characters.'];
+    }
+    if (!preg_match('/^\d+(?:\.\d{1,2})?$/', $priceText)) {
+        return ['valid' => false, 'message' => 'Enter a valid product price with up to two decimal places.'];
+    }
+
+    $priceValue = (float) $priceText;
+    if ($priceValue < 0.01 || $priceValue > 999999.99) {
+        return ['valid' => false, 'message' => 'Enter a product price from ₱0.01 to ₱999,999.99.'];
+    }
+
+    return [
+        'valid' => true,
+        'name' => $name,
+        'description' => $description,
+        'price' => round($priceValue, 2),
+    ];
+}
+
+/** @param array<int, array<string, mixed>> $products */
+function createProductId(string $name, array $products): string
+{
+    $base = mb_strtolower($name);
+    $base = preg_replace('/[^a-z0-9]+/u', '-', $base) ?? '';
+    $base = trim($base, '-');
+    if ($base === '') {
+        $base = 'product';
+    }
+
+    $existing = array_column($products, 'id');
+    $candidate = $base;
+    $suffix = 2;
+    while (in_array($candidate, $existing, true)) {
+        $candidate = $base . '-' . $suffix;
+        $suffix++;
+    }
+
+    return $candidate;
+}
+
+/** @return array<int, array<string, mixed>> */
+function loadRecentTransactions(string $path, int $limit = 20): array
+{
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $contents = file_get_contents($path);
+    $transactions = $contents === false ? null : json_decode($contents, true);
+    if (!is_array($transactions)) {
+        throw new RuntimeException('The transaction database is not valid JSON.');
+    }
+
+    return array_slice(array_reverse($transactions), 0, max(1, $limit));
 }
 
 /**
