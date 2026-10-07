@@ -1,0 +1,38 @@
+[
+  {
+    "id": "pandesal",
+    "name": "Pandesal (pack of 5)",
+    "description": "Five soft, freshly baked bread rolls.",
+    "price": 25.00
+  },
+  {
+    "id": "ensaymada",
+    "name": "Ensaymada",
+    "description": "Soft pastry finished with butter and sugar.",
+    "price": 20.00
+  },
+  {
+    "id": "spanish-bread",
+    "name": "Spanish Bread",
+    "description": "Rolled bread with a sweet buttery filling.",
+    "price": 15.00
+  },
+  {
+    "id": "chocolate-cupcake",
+    "name": "Chocolate Cupcake",
+    "description": "Moist chocolate cake in a single serving.",
+    "price": 30.00
+  },
+  {
+    "id": "loaf-bread",
+    "name": "Loaf Bread",
+    "description": "A soft sliced loaf for home or sharing.",
+    "price": 55.00
+  },
+  {
+    "id": "brewed-coffee",
+    "name": "Brewed Coffee (cup)",
+    "description": "A warm cup of freshly brewed coffee.",
+    "price": 25.00
+  }
+]
