@@ -15,7 +15,7 @@
     const paymentInput = document.querySelector('#cash-payment');
     const paymentError = document.querySelector('#payment-error');
     const payButton = document.querySelector('#pay-button');
-    const feedback = document.querySelector('#feedback');
+    const toastRegion = document.querySelector('#toast-region');
     const receiptDialog = document.querySelector('#receipt-dialog');
     const transactionsDialog = document.querySelector('#transactions-dialog');
     const transactionsList = document.querySelector('#transactions-list');
@@ -30,7 +30,14 @@
     const productPreviewImage = document.querySelector('#product-preview-image');
     const productPreviewEmpty = document.querySelector('#product-preview-empty');
     const removeProductImage = document.querySelector('#remove-product-image');
+    const confirmationDialog = document.querySelector('#confirmation-dialog');
+    const confirmationTitle = document.querySelector('#confirmation-title');
+    const confirmationMessage = document.querySelector('#confirmation-message');
+    const confirmationCancel = document.querySelector('#confirmation-cancel');
+    const confirmationAccept = document.querySelector('#confirmation-accept');
     let previewObjectUrl = null;
+    let confirmationResolver = null;
+    let confirmationOpener = null;
 
     function peso(cents) {
         return new Intl.NumberFormat('en-PH', {
@@ -103,15 +110,71 @@
         return total;
     }
 
-    function showFeedback(message, type = 'success') {
-        feedback.textContent = message;
-        feedback.className = `feedback feedback--${type}`;
-        window.clearTimeout(showFeedback.timer);
-        showFeedback.timer = window.setTimeout(() => {
-            feedback.textContent = '';
-            feedback.className = 'feedback';
-        }, 2400);
+    function showToast(message, type = 'success') {
+        const openDialogs = Array.from(document.querySelectorAll('dialog[open]'));
+        const activeDialog = openDialogs.at(-1);
+        const toastHost = activeDialog || document.body;
+        if (toastRegion.parentElement !== toastHost) toastHost.append(toastRegion);
+
+        while (toastRegion.children.length >= 3) toastRegion.firstElementChild.remove();
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast--${type}`;
+        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        const symbol = document.createElement('span');
+        symbol.className = 'toast-symbol';
+        symbol.textContent = type === 'success' ? '✓' : type === 'error' ? '!' : 'i';
+        symbol.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        text.className = 'toast-message';
+        text.textContent = message;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'toast-close';
+        close.setAttribute('aria-label', 'Dismiss message');
+        close.textContent = '×';
+        toast.append(symbol, text, close);
+
+        const dismiss = () => {
+            toast.classList.remove('toast--visible');
+            window.setTimeout(() => toast.remove(), 180);
+        };
+        close.addEventListener('click', dismiss);
+        toastRegion.append(toast);
+        requestAnimationFrame(() => toast.classList.add('toast--visible'));
+        window.setTimeout(dismiss, 3200);
     }
+
+    function confirmAction({title, message, confirmLabel}) {
+        if (confirmationDialog.open) return Promise.resolve(false);
+        confirmationTitle.textContent = title;
+        confirmationMessage.textContent = message;
+        confirmationAccept.textContent = confirmLabel;
+        confirmationOpener = document.activeElement;
+        confirmationDialog.showModal();
+        confirmationCancel.focus();
+        return new Promise((resolve) => {
+            confirmationResolver = resolve;
+        });
+    }
+
+    function finishConfirmation(accepted) {
+        if (!confirmationResolver) return;
+        const resolve = confirmationResolver;
+        confirmationResolver = null;
+        confirmationDialog.close();
+        const opener = confirmationOpener;
+        confirmationOpener = null;
+        if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+        resolve(accepted);
+    }
+
+    confirmationCancel.addEventListener('click', () => finishConfirmation(false));
+    confirmationAccept.addEventListener('click', () => finishConfirmation(true));
+    confirmationDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        finishConfirmation(false);
+    });
 
     function setPaymentError(message = '') {
         paymentError.textContent = message;
@@ -189,7 +252,7 @@
         if (!product) return;
         cart.set(id, Math.min((cart.get(id) || 0) + 1, 999));
         renderCart();
-        showFeedback(`${product.name} added to the order.`);
+        showToast(`${product.name} added to the order.`);
     }
 
     productGrid.addEventListener('click', (event) => {
@@ -211,17 +274,23 @@
             cart.set(id, quantity - 1);
         } else if (button.dataset.action === 'remove') {
             cart.delete(id);
-            showFeedback(`${products.get(id).name} removed.`, 'neutral');
+            showToast(`${products.get(id).name} removed.`, 'neutral');
         }
 
         setPaymentError();
         renderCart();
     });
 
-    clearOrder.addEventListener('click', () => {
+    clearOrder.addEventListener('click', async () => {
+        const confirmed = await confirmAction({
+            title: 'Clear current order?',
+            message: 'All items and the entered payment amount will be removed.',
+            confirmLabel: 'Clear order',
+        });
+        if (!confirmed) return;
         cart.clear();
         renderCart();
-        showFeedback('The order was cleared.', 'neutral');
+        showToast('The order was cleared.', 'neutral');
     });
 
     function applyProducts(updatedProducts) {
@@ -403,7 +472,12 @@
         const deleteButton = event.target.closest('[data-delete-product]');
         if (!deleteButton) return;
         const product = products.get(deleteButton.dataset.deleteProduct);
-        if (!window.confirm(`Remove ${product.name} from the catalog?`)) return;
+        const confirmed = await confirmAction({
+            title: 'Remove product?',
+            message: `${product.name} will be removed from the catalog. Completed transactions will not be changed.`,
+            confirmLabel: 'Remove product',
+        });
+        if (!confirmed) return;
 
         await changeProduct({action: 'delete', id: product.id});
     });
@@ -441,7 +515,13 @@
     removeProductImage.addEventListener('click', async () => {
         const id = document.querySelector('#product-id').value;
         const product = products.get(id);
-        if (!product?.image || !window.confirm(`Remove the image for ${product.name}?`)) return;
+        if (!product?.image) return;
+        const confirmed = await confirmAction({
+            title: 'Remove product image?',
+            message: `The current image for ${product.name} will be deleted. The product will remain in the catalog.`,
+            confirmLabel: 'Remove image',
+        });
+        if (!confirmed) return;
         await changeProduct({action: 'remove_image', id});
     });
 
@@ -481,8 +561,8 @@
             }
             applyProducts(result.products);
             resetProductForm();
-            showDialogFeedback('products-feedback', result.message);
-            showFeedback(result.message);
+            showDialogFeedback('products-feedback');
+            showToast(result.message);
             return true;
         } catch (error) {
             productFormError.textContent = 'The product could not be updated. Check the server and try again.';
@@ -558,7 +638,7 @@
         paymentInput.value = '';
         renderCart();
         receiptDialog.close();
-        showFeedback('New transaction ready.');
+        showToast('New transaction ready.');
         document.querySelector('[data-add-product]').focus();
     });
 

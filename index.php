@@ -106,8 +106,6 @@ $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format
                 <button id="clear-order" class="text-button" type="button" disabled>Clear</button>
             </div>
 
-            <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
-
             <div id="cart-empty" class="empty-cart">
                 <span class="empty-cart-icon" aria-hidden="true">
                     <svg viewBox="0 0 32 32"><path d="M7 9h2l2 12h11l3-9H10m3 14a1.5 1.5 0 1 0 0 .01M22 26a1.5 1.5 0 1 0 0 .01"/></svg>
@@ -239,6 +237,18 @@ $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format
         <p class="receipt-thanks">Thank you for visiting Campus Bakery.</p>
         <button id="new-transaction" class="pay-button" type="button">Start new transaction</button>
     </dialog>
+
+    <dialog id="confirmation-dialog" class="confirmation-dialog" aria-labelledby="confirmation-title" aria-describedby="confirmation-message">
+        <div class="confirmation-icon" aria-hidden="true">!</div>
+        <h2 id="confirmation-title">Confirm action</h2>
+        <p id="confirmation-message"></p>
+        <div class="confirmation-actions">
+            <button id="confirmation-cancel" class="secondary-button" type="button">Cancel</button>
+            <button id="confirmation-accept" class="danger-button" type="button">Confirm</button>
+        </div>
+    </dialog>
+
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="false"></div>
 
     <script>
         window.CAMPUS_BAKERY = <?= json_encode([

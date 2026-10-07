@@ -48,6 +48,8 @@ function check(condition, message) {
         const editedProduct = page.locator('#product-admin-list').getByText('Test Butter Croissant', {exact: true});
         await editedProduct.waitFor({state: 'visible'});
         check(await editedProduct.count() === 1, 'Edited product name should be shown.');
+        await page.locator('.toast--success').filter({hasText: 'Product updated.'}).waitFor({state: 'visible'});
+        await page.screenshot({path: path.join(outputDirectory, '08-toast-message.png')});
         await page.waitForFunction((previous) => {
             const button = document.querySelector('[data-add-product="test-croissant"]');
             const image = button?.closest('article')?.querySelector('.product-visual img');
@@ -58,13 +60,23 @@ function check(condition, message) {
 
         await page.locator('[data-edit-product="test-croissant"]').click();
         await page.locator('#remove-product-image').waitFor({state: 'visible'});
-        page.once('dialog', (dialog) => dialog.accept());
         await page.locator('#remove-product-image').click();
+        await page.locator('#confirmation-dialog').waitFor({state: 'visible'});
+        check(await page.evaluate(() => document.activeElement?.id) === 'confirmation-cancel', 'Confirmation should focus Cancel first.');
+        await page.keyboard.press('Escape');
+        await page.locator('#confirmation-dialog').waitFor({state: 'hidden'});
+        check(await productImage.count() === 1, 'Escape should cancel image removal.');
+        check(await page.evaluate(() => document.activeElement?.id) === 'remove-product-image', 'Cancel should restore focus to the triggering control.');
+        await page.locator('#remove-product-image').click();
+        await page.locator('#confirmation-dialog').waitFor({state: 'visible'});
+        await page.locator('#confirmation-accept').click();
         await productImage.waitFor({state: 'detached'});
         check(await page.locator('[data-edit-product="test-croissant"]').locator('xpath=ancestor::article').locator('.product-admin-thumbnail img').count() === 0, 'Removed image should leave the product manager.');
 
-        page.once('dialog', (dialog) => dialog.accept());
         await page.locator('[data-delete-product="test-croissant"]').click();
+        await page.locator('#confirmation-dialog').waitFor({state: 'visible'});
+        await page.screenshot({path: path.join(outputDirectory, '07-confirmation-modal.png')});
+        await page.locator('#confirmation-accept').click();
         await page.locator('[data-delete-product="test-croissant"]').waitFor({state: 'detached'});
         check(await page.locator('[data-add-product="test-croissant"]').count() === 0, 'Removed product should leave the catalog.');
         await page.locator('[data-close-dialog="products-dialog"]').click();

@@ -92,5 +92,67 @@
         "total_cents": 4500,
         "paid_cents": 4500,
         "change_cents": 0
+    },
+    {
+        "reference": "CB-20261007-172037-FB3E",
+        "created_at": "2026-10-07T17:20:37+08:00",
+        "items": [
+            {
+                "id": "ensaymada",
+                "name": "Ensaymada",
+                "quantity": 3,
+                "unit_price_cents": 2000,
+                "subtotal_cents": 6000
+            },
+            {
+                "id": "pandesal",
+                "name": "Pandesal (pack of 5)",
+                "quantity": 1,
+                "unit_price_cents": 2500,
+                "subtotal_cents": 2500
+            }
+        ],
+        "total_cents": 8500,
+        "paid_cents": 8500,
+        "change_cents": 0
+    },
+    {
+        "reference": "CB-20261007-173502-DECE",
+        "created_at": "2026-10-07T17:35:02+08:00",
+        "items": [
+            {
+                "id": "chocolate-cupcake",
+                "name": "Chocolate Cupcake",
+                "quantity": 1,
+                "unit_price_cents": 3000,
+                "subtotal_cents": 3000
+            },
+            {
+                "id": "brewed-coffee",
+                "name": "Brewed Coffee (cup)",
+                "quantity": 1,
+                "unit_price_cents": 2500,
+                "subtotal_cents": 2500
+            }
+        ],
+        "total_cents": 5500,
+        "paid_cents": 6004,
+        "change_cents": 504
+    },
+    {
+        "reference": "CB-20261007-174152-CE81",
+        "created_at": "2026-10-07T17:41:52+08:00",
+        "items": [
+            {
+                "id": "chocolate-cupcake",
+                "name": "Chocolate Cupcake",
+                "quantity": 1,
+                "unit_price_cents": 3000,
+                "subtotal_cents": 3000
+            }
+        ],
+        "total_cents": 3000,
+        "paid_cents": 3000,
+        "change_cents": 0
     }
 ]

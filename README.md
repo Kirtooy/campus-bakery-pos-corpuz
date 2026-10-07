@@ -15,6 +15,7 @@ A desktop-friendly, browser-based point-of-sale system for a campus bakery. It u
 - Unique transaction reference for every completed sale
 - Transactions saved to `data/transactions.json`
 - Newest-first recent transaction history with sale details
+- Reusable toast notifications and accessible modal confirmations
 - New Transaction action that clears the cart, payment, and receipt
 - CSRF protection for checkout requests
 
