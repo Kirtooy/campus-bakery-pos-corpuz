@@ -30,5 +30,67 @@
         "total_cents": 3000,
         "paid_cents": 6000,
         "change_cents": 3000
+    },
+    {
+        "reference": "CB-20261007-171437-BFDC",
+        "created_at": "2026-10-07T17:14:37+08:00",
+        "items": [
+            {
+                "id": "ensaymada",
+                "name": "Ensaymada",
+                "quantity": 1,
+                "unit_price_cents": 2000,
+                "subtotal_cents": 2000
+            }
+        ],
+        "total_cents": 2000,
+        "paid_cents": 2500,
+        "change_cents": 500
+    },
+    {
+        "reference": "CB-20261007-171450-D55C",
+        "created_at": "2026-10-07T17:14:50+08:00",
+        "items": [
+            {
+                "id": "pandesal",
+                "name": "Pandesal (pack of 5)",
+                "quantity": 1,
+                "unit_price_cents": 2500,
+                "subtotal_cents": 2500
+            },
+            {
+                "id": "ensaymada",
+                "name": "Ensaymada",
+                "quantity": 3,
+                "unit_price_cents": 2000,
+                "subtotal_cents": 6000
+            }
+        ],
+        "total_cents": 8500,
+        "paid_cents": 10000,
+        "change_cents": 1500
+    },
+    {
+        "reference": "CB-20261007-171458-C943",
+        "created_at": "2026-10-07T17:14:58+08:00",
+        "items": [
+            {
+                "id": "spanish-bread",
+                "name": "Spanish Bread",
+                "quantity": 1,
+                "unit_price_cents": 1500,
+                "subtotal_cents": 1500
+            },
+            {
+                "id": "chocolate-cupcake",
+                "name": "Chocolate Cupcake",
+                "quantity": 1,
+                "unit_price_cents": 3000,
+                "subtotal_cents": 3000
+            }
+        ],
+        "total_cents": 4500,
+        "paid_cents": 4500,
+        "change_cents": 0
     }
 ]

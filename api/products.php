@@ -31,8 +31,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     productResponse(405, ['ok' => false, 'message' => 'Only GET and POST requests are allowed.']);
 }
 
-$rawBody = file_get_contents('php://input');
-$request = $rawBody === false ? null : json_decode($rawBody, true);
+$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+$uploadedFile = null;
+if (str_starts_with($contentType, 'multipart/form-data')) {
+    $request = $_POST;
+    if (isset($_FILES['image']) && is_array($_FILES['image']) && ($_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $uploadedFile = $_FILES['image'];
+    }
+} else {
+    $rawBody = file_get_contents('php://input');
+    $request = $rawBody === false ? null : json_decode($rawBody, true);
+}
+
 if (!is_array($request)) {
     productResponse(400, ['ok' => false, 'message' => 'The request could not be read.']);
 }
@@ -44,14 +54,18 @@ if (!is_string($submittedToken) || !is_string($sessionToken) || $sessionToken ==
 }
 
 $action = $request['action'] ?? '';
-if (!in_array($action, ['add', 'update', 'delete'], true)) {
+if (!in_array($action, ['add', 'update', 'delete', 'remove_image'], true)) {
     productResponse(422, ['ok' => false, 'message' => 'Choose a valid product action.']);
 }
 
+$newImage = null;
+$oldImage = null;
+
 try {
-    $updatedProducts = mutateProducts($path, function (array $products) use ($action, $request): array {
+    $updatedProducts = mutateProducts($path, function (array $products) use ($action, $request, $uploadedFile, &$newImage, &$oldImage): array {
+        $id = $request['id'] ?? '';
+
         if ($action === 'delete') {
-            $id = $request['id'] ?? '';
             if (!is_string($id) || $id === '') {
                 throw new InvalidArgumentException('Choose a product to remove.');
             }
@@ -59,12 +73,34 @@ try {
                 throw new InvalidArgumentException('At least five products are required in the catalog.');
             }
 
-            $before = count($products);
-            $products = array_values(array_filter($products, fn (array $product): bool => ($product['id'] ?? '') !== $id));
-            if (count($products) === $before) {
+            $found = false;
+            foreach ($products as $index => $product) {
+                if (($product['id'] ?? '') === $id) {
+                    $oldImage = is_string($product['image'] ?? null) ? $product['image'] : null;
+                    unset($products[$index]);
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
                 throw new InvalidArgumentException('The selected product was not found.');
             }
-            return $products;
+            return array_values($products);
+        }
+
+        if ($action === 'remove_image') {
+            if (!is_string($id) || $id === '') {
+                throw new InvalidArgumentException('Choose a product image to remove.');
+            }
+            foreach ($products as &$product) {
+                if (($product['id'] ?? '') === $id) {
+                    $oldImage = is_string($product['image'] ?? null) ? $product['image'] : null;
+                    $product['image'] = null;
+                    return $products;
+                }
+            }
+            unset($product);
+            throw new InvalidArgumentException('The selected product was not found.');
         }
 
         $validated = validateProductInput($request['name'] ?? null, $request['description'] ?? null, $request['price'] ?? null);
@@ -73,46 +109,65 @@ try {
         }
 
         if ($action === 'add') {
+            $id = createProductId($validated['name'], $products);
+            if ($uploadedFile !== null) {
+                $newImage = storeUploadedProductImage($uploadedFile, $id);
+            }
             $products[] = [
-                'id' => createProductId($validated['name'], $products),
+                'id' => $id,
                 'name' => $validated['name'],
                 'description' => $validated['description'],
                 'price' => $validated['price'],
+                'image' => $newImage,
             ];
             return $products;
         }
 
-        $id = $request['id'] ?? '';
         if (!is_string($id) || $id === '') {
             throw new InvalidArgumentException('Choose a product to update.');
         }
 
-        $found = false;
         foreach ($products as &$product) {
             if (($product['id'] ?? '') === $id) {
                 $product['name'] = $validated['name'];
                 $product['description'] = $validated['description'];
                 $product['price'] = $validated['price'];
-                $found = true;
-                break;
+                if ($uploadedFile !== null) {
+                    $oldImage = is_string($product['image'] ?? null) ? $product['image'] : null;
+                    $newImage = storeUploadedProductImage($uploadedFile, $id);
+                    $product['image'] = $newImage;
+                }
+                return $products;
             }
         }
         unset($product);
-
-        if (!$found) {
-            throw new InvalidArgumentException('The selected product was not found.');
-        }
-        return $products;
+        throw new InvalidArgumentException('The selected product was not found.');
     });
 
+    if ($oldImage !== null && $oldImage !== $newImage) {
+        deleteProductImage($oldImage);
+    }
+
+    $messages = [
+        'add' => 'Product added.',
+        'update' => 'Product updated.',
+        'delete' => 'Product removed.',
+        'remove_image' => 'Product image removed.',
+    ];
     productResponse(200, [
         'ok' => true,
-        'message' => $action === 'add' ? 'Product added.' : ($action === 'update' ? 'Product updated.' : 'Product removed.'),
+        'message' => $messages[$action],
         'products' => $updatedProducts,
     ]);
 } catch (InvalidArgumentException $error) {
+    if ($newImage !== null) {
+        deleteProductImage($newImage);
+    }
     productResponse(422, ['ok' => false, 'message' => $error->getMessage()]);
 } catch (Throwable $error) {
+    if ($newImage !== null) {
+        deleteProductImage($newImage);
+    }
     error_log($error->getMessage());
     productResponse(500, ['ok' => false, 'message' => 'The product catalog could not be updated.']);
 }

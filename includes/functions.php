@@ -17,6 +17,14 @@ function appDataPath(string $filename): string
     return $directory . DIRECTORY_SEPARATOR . $filename;
 }
 
+function appImageDirectory(): string
+{
+    $customDirectory = getenv('CAMPUS_BAKERY_IMAGE_DIR');
+    return is_string($customDirectory) && trim($customDirectory) !== ''
+        ? rtrim($customDirectory, '\\/')
+        : dirname(__DIR__) . '/images/products';
+}
+
 function formatPeso(int $cents): string
 {
     return '₱' . number_format($cents / 100, 2);
@@ -35,7 +43,7 @@ function productInitials(string $name): string
 }
 
 /**
- * @return array<int, array{id: string, name: string, description: string, price_cents: int}>
+ * @return array<int, array{id: string, name: string, description: string, price_cents: int, image: ?string}>
  */
 function loadProducts(string $path): array
 {
@@ -63,15 +71,76 @@ function loadProducts(string $path): array
             throw new RuntimeException('A product record is incomplete.');
         }
 
+        $image = $product['image'] ?? null;
+        if (!is_string($image) || !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/', $image)) {
+            $image = null;
+        }
+
         $products[] = [
             'id' => $product['id'],
             'name' => $product['name'],
             'description' => $product['description'],
             'price_cents' => (int) round((float) $product['price'] * 100),
+            'image' => $image,
         ];
     }
 
     return $products;
+}
+
+/** @param array<string, mixed> $file */
+function storeUploadedProductImage(array $file, string $productId): string
+{
+    $error = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+    if ($error !== UPLOAD_ERR_OK) {
+        $message = $error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE
+            ? 'The product image must not exceed 2 MB.'
+            : 'The product image could not be uploaded.';
+        throw new InvalidArgumentException($message);
+    }
+
+    $temporaryPath = $file['tmp_name'] ?? '';
+    $size = $file['size'] ?? 0;
+    if (!is_string($temporaryPath) || $temporaryPath === '' || !is_numeric($size) || (int) $size < 1 || (int) $size > 2 * 1024 * 1024) {
+        throw new InvalidArgumentException('The product image must be a non-empty file no larger than 2 MB.');
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($temporaryPath);
+    $extensions = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!is_string($mime) || !isset($extensions[$mime]) || getimagesize($temporaryPath) === false) {
+        throw new InvalidArgumentException('Choose a valid JPEG, PNG, or WebP image.');
+    }
+
+    $directory = appImageDirectory();
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Unable to create the product image directory.');
+    }
+
+    $safeId = preg_replace('/[^a-z0-9-]+/', '-', mb_strtolower($productId)) ?: 'product';
+    $filename = trim($safeId, '-') . '-' . bin2hex(random_bytes(6)) . '.' . $extensions[$mime];
+    $destination = $directory . DIRECTORY_SEPARATOR . $filename;
+    if (!move_uploaded_file($temporaryPath, $destination)) {
+        throw new RuntimeException('Unable to store the product image.');
+    }
+
+    return $filename;
+}
+
+function deleteProductImage(?string $filename): void
+{
+    if ($filename === null || !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/', $filename)) {
+        return;
+    }
+
+    $path = appImageDirectory() . DIRECTORY_SEPARATOR . $filename;
+    if (is_file($path)) {
+        unlink($path);
+    }
 }
 
 /**
@@ -193,7 +262,7 @@ function loadRecentTransactions(string $path, int $limit = 20): array
  * Rebuild the order using trusted prices from products.json.
  *
  * @param array<mixed> $submittedCart
- * @param array<int, array{id: string, name: string, description: string, price_cents: int}> $products
+ * @param array<int, array{id: string, name: string, description: string, price_cents: int, image: ?string}> $products
  * @return array{items: array<int, array{id: string, name: string, quantity: int, unit_price_cents: int, subtotal_cents: int}>, total_cents: int}
  */
 function calculateOrder(array $submittedCart, array $products): array

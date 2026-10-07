@@ -6,6 +6,7 @@ A desktop-friendly, browser-based point-of-sale system for a campus bakery. It u
 
 - Six bakery products loaded from `data/products.json`
 - Add, edit, and remove products without reloading the page
+- Upload, replace, preview, and remove JPEG, PNG, or WebP product images
 - Add, increase, decrease, and remove cart items
 - Automatic subtotals and order total
 - Blank, non-numeric, negative, and insufficient-payment validation
@@ -52,6 +53,7 @@ Get-ChildItem -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
 
 The server recalculates the order from the trusted product file instead of trusting totals sent by the browser.
 Product changes are also validated on the server and written while holding an exclusive file lock. The catalog cannot be reduced below the examination requirement of five products.
+Product images are limited to 2 MB, checked using their actual file contents, and stored under `images/products` with generated filenames.
 
 ## Adding product images later
 

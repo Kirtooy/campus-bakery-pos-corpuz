@@ -26,6 +26,11 @@
     const productFormError = document.querySelector('#product-form-error');
     const cancelProductEdit = document.querySelector('#cancel-product-edit');
     const saveProduct = document.querySelector('#save-product');
+    const productImageInput = document.querySelector('#product-image');
+    const productPreviewImage = document.querySelector('#product-preview-image');
+    const productPreviewEmpty = document.querySelector('#product-preview-empty');
+    const removeProductImage = document.querySelector('#remove-product-image');
+    let previewObjectUrl = null;
 
     function peso(cents) {
         return new Intl.NumberFormat('en-PH', {
@@ -39,6 +44,10 @@
         return name.trim().split(/\s+/).slice(0, 2).map((word) => word[0] || '').join('').toUpperCase() || 'CB';
     }
 
+    function productImageUrl(filename) {
+        return `api/product-image.php?name=${encodeURIComponent(filename)}`;
+    }
+
     function renderCatalog() {
         productGrid.replaceChildren();
         products.forEach((product) => {
@@ -48,9 +57,16 @@
             const visual = document.createElement('div');
             visual.className = 'product-visual';
             visual.setAttribute('aria-hidden', 'true');
-            const visualText = document.createElement('span');
-            visualText.textContent = initials(product.name);
-            visual.append(visualText);
+            if (product.image) {
+                const image = document.createElement('img');
+                image.src = productImageUrl(product.image);
+                image.alt = '';
+                visual.append(image);
+            } else {
+                const visualText = document.createElement('span');
+                visualText.textContent = initials(product.name);
+                visual.append(visualText);
+            }
 
             const copy = document.createElement('div');
             copy.className = 'product-copy';
@@ -299,12 +315,26 @@
         products.forEach((product) => {
             const row = document.createElement('article');
             row.className = 'product-admin-row';
+            const identity = document.createElement('div');
+            identity.className = 'product-admin-identity';
+            const thumbnail = document.createElement('div');
+            thumbnail.className = 'product-admin-thumbnail';
+            if (product.image) {
+                const image = document.createElement('img');
+                image.src = productImageUrl(product.image);
+                image.alt = '';
+                thumbnail.append(image);
+            } else {
+                thumbnail.textContent = initials(product.name);
+            }
             const copy = document.createElement('div');
+            copy.className = 'product-admin-copy';
             const name = document.createElement('strong');
             name.textContent = product.name;
             const price = document.createElement('span');
             price.textContent = peso(product.price_cents);
             copy.append(name, price);
+            identity.append(thumbnail, copy);
 
             const actions = document.createElement('div');
             const edit = document.createElement('button');
@@ -318,18 +348,33 @@
             remove.dataset.deleteProduct = product.id;
             remove.textContent = 'Remove';
             actions.append(edit, remove);
-            row.append(copy, actions);
+            row.append(identity, actions);
             productAdminList.append(row);
         });
     }
 
     function resetProductForm() {
+        if (previewObjectUrl) {
+            URL.revokeObjectURL(previewObjectUrl);
+            previewObjectUrl = null;
+        }
         productForm.reset();
         document.querySelector('#product-id').value = '';
         productFormTitle.textContent = 'Add product';
         saveProduct.textContent = 'Add product';
         cancelProductEdit.hidden = true;
+        productPreviewImage.hidden = true;
+        productPreviewImage.removeAttribute('src');
+        productPreviewEmpty.hidden = false;
+        removeProductImage.hidden = true;
         productFormError.textContent = '';
+    }
+
+    function showProductPreview(source, canRemove = false) {
+        productPreviewImage.src = source;
+        productPreviewImage.hidden = false;
+        productPreviewEmpty.hidden = true;
+        removeProductImage.hidden = !canRemove;
     }
 
     productAdminList.addEventListener('click', async (event) => {
@@ -340,6 +385,13 @@
             document.querySelector('#product-name').value = product.name;
             document.querySelector('#product-description').value = product.description;
             document.querySelector('#product-price').value = (product.price_cents / 100).toFixed(2);
+            if (product.image) {
+                showProductPreview(productImageUrl(product.image), true);
+            } else {
+                productPreviewImage.hidden = true;
+                productPreviewEmpty.hidden = false;
+                removeProductImage.hidden = true;
+            }
             productFormTitle.textContent = 'Edit product';
             saveProduct.textContent = 'Save changes';
             cancelProductEdit.hidden = false;
@@ -358,6 +410,41 @@
 
     cancelProductEdit.addEventListener('click', resetProductForm);
 
+    productImageInput.addEventListener('change', () => {
+        if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+        previewObjectUrl = null;
+        const file = productImageInput.files[0];
+        if (!file) {
+            const editingProduct = products.get(document.querySelector('#product-id').value);
+            if (editingProduct?.image) showProductPreview(productImageUrl(editingProduct.image), true);
+            else resetImagePreviewOnly();
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            productImageInput.value = '';
+            productFormError.textContent = 'The product image must not exceed 2 MB.';
+            resetImagePreviewOnly();
+            return;
+        }
+        previewObjectUrl = URL.createObjectURL(file);
+        showProductPreview(previewObjectUrl, false);
+        productFormError.textContent = '';
+    });
+
+    function resetImagePreviewOnly() {
+        productPreviewImage.hidden = true;
+        productPreviewImage.removeAttribute('src');
+        productPreviewEmpty.hidden = false;
+        removeProductImage.hidden = true;
+    }
+
+    removeProductImage.addEventListener('click', async () => {
+        const id = document.querySelector('#product-id').value;
+        const product = products.get(id);
+        if (!product?.image || !window.confirm(`Remove the image for ${product.name}?`)) return;
+        await changeProduct({action: 'remove_image', id});
+    });
+
     productForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         productFormError.textContent = '';
@@ -374,16 +461,18 @@
             name: document.querySelector('#product-name').value,
             description: document.querySelector('#product-description').value,
             price: document.querySelector('#product-price').value,
-        });
+        }, productImageInput.files[0] || null);
     });
 
-    async function changeProduct(payload) {
+    async function changeProduct(payload, imageFile = null) {
         saveProduct.disabled = true;
         try {
+            const formData = new FormData();
+            Object.entries({...payload, csrf_token: app.csrfToken}).forEach(([key, value]) => formData.append(key, value));
+            if (imageFile) formData.append('image', imageFile);
             const response = await fetch('api/products.php', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({...payload, csrf_token: app.csrfToken}),
+                body: formData,
             });
             const result = await response.json();
             if (!response.ok || !result.ok) {

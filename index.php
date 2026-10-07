@@ -71,7 +71,11 @@ $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format
                 <?php foreach ($products as $product): ?>
                     <article class="product-card">
                         <div class="product-visual" aria-hidden="true">
-                            <span><?= escape(productInitials($product['name'])) ?></span>
+                            <?php if ($product['image'] !== null): ?>
+                                <img src="api/product-image.php?name=<?= rawurlencode($product['image']) ?>" alt="">
+                            <?php else: ?>
+                                <span><?= escape(productInitials($product['name'])) ?></span>
+                            <?php endif; ?>
                         </div>
                         <div class="product-copy">
                             <h2><?= escape($product['name']) ?></h2>
@@ -194,6 +198,15 @@ $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format
                         <span aria-hidden="true">₱</span>
                         <input id="product-price" name="price" type="number" min="0.01" max="999999.99" step="0.01" placeholder="0.00" required>
                     </div>
+
+                    <label for="product-image">Product image <span class="optional-label">Optional</span></label>
+                    <input id="product-image" name="image" type="file" accept="image/jpeg,image/png,image/webp">
+                    <p class="field-hint">JPEG, PNG, or WebP. Maximum 2 MB.</p>
+                    <div id="product-image-preview" class="product-image-preview">
+                        <img id="product-preview-image" alt="Selected product preview" hidden>
+                        <span id="product-preview-empty">No image selected</span>
+                    </div>
+                    <button id="remove-product-image" class="remove-image-button" type="button" hidden>Remove current image</button>
 
                     <p id="product-form-error" class="field-error" role="alert"></p>
                     <div class="product-form-actions">

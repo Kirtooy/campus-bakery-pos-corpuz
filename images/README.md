@@ -1,6 +1,6 @@
 # Product images
 
-Place future product photos in this folder. The current interface intentionally uses text initials so the POS works fully offline without image files.
+Uploaded product photos are stored automatically in the `products` subfolder. Products without an image use readable text initials, so the POS remains fully usable offline.
 
 Suggested names:
 
